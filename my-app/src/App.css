@@ -1,0 +1,28 @@
+.button-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+/* 기존 스타일 유지 */
+.App-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+}
+
+button {
+  background-color: blue;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 0 10px; /* 버튼 사이의 간격 */
+}
+
+button:hover {
+  background-color: navy;
+}
