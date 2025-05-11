@@ -46,7 +46,7 @@ function Sidebar() {
         엑셀 업로드
       </MenuItem>
       <MenuItem to="/br-order" active={path === "/br-order" ? 1 : 0}>
-        BR 주문
+        중국 주문
       </MenuItem>
     </SidebarContainer>
   );

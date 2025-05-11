@@ -9,6 +9,7 @@ const multer = require('multer');
 const xlsx = require('xlsx');
 const path = require('path');
 const fs = require('fs');
+const { google } = require('googleapis');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -23,6 +24,7 @@ const MONGO_URI = 'mongodb+srv://immongorder1:djajskek1@cluster0.wo05sle.mongodb
 const DB_NAME = 'immongRK';
 const COLLECTION_NAME = 'macBook';
 const BR_COLLECTION_NAME = 'brOrders';
+const CHINA_ORDER_COLLECTION_NAME = 'chinaOrder';
 
 mongoose.connect(MONGO_URI, {
   dbName: DB_NAME,
@@ -74,6 +76,123 @@ const BrOrderSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 const BrOrderModel = mongoose.model(BR_COLLECTION_NAME, BrOrderSchema);
+
+// 중국 주문 스키마 및 모델 정의
+const ChinaOrderSchema = new mongoose.Schema({
+  orderNumber: { type: String, required: true }, // g_orderNo
+  orderDate: { type: Date, required: true },     // h_orderDate
+  productName: { type: String, required: true }, // i_productName
+  barcode: { type: String, required: true },     // k_barcode
+  quantity: { type: Number, default: 1 }         // n_orderQuantity
+}, { timestamps: true });
+
+const ChinaOrderModel = mongoose.model(CHINA_ORDER_COLLECTION_NAME, ChinaOrderSchema);
+
+// Google Sheets API 설정
+async function getGoogleSheetData() {
+  try {
+    // 구글 인증 설정
+    const auth = new google.auth.GoogleAuth({
+      keyFile: path.join(__dirname, 'google-credentials.json'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+    });
+
+    const client = await auth.getClient();
+    const sheets = google.sheets({ version: 'v4', auth: client });
+
+    // 스프레드시트 ID와 범위 설정
+    const spreadsheetId = '1SS93DMVgH12J6CcQnfFtxWkOkov5SANo4nkkh1C1YHE';
+    const range = '주문BR!A3:N1240'; // 3행부터 1240행까지 데이터 가져오기
+
+    // 데이터 가져오기
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+    });
+
+    const rows = response.data.values;
+    
+    if (!rows || rows.length === 0) {
+      console.log('데이터가 없습니다.');
+      return [];
+    }
+
+    console.log(`구글 시트에서 ${rows.length}행의 데이터를 가져왔습니다.`);
+
+    // 필요한 열 인덱스
+    const orderNoIndex = 6;  // G열 (0부터 시작)
+    const orderDateIndex = 7; // H열
+    const productNameIndex = 8; // I열
+    const barcodeIndex = 10; // K열
+    const quantityIndex = 13; // N열
+
+    // 데이터 변환
+    const orders = rows.map(row => {
+      // 필요한 데이터가 있는지 확인
+      if (!row || row.length <= Math.max(orderNoIndex, orderDateIndex, productNameIndex, barcodeIndex, quantityIndex)) {
+        return null;
+      }
+
+      // 주문번호와 상품명이 없으면 건너뛰기
+      if (!row[orderNoIndex] || !row[productNameIndex]) {
+        return null;
+      }
+
+      // 날짜 형식 변환
+      let orderDate;
+      try {
+        // 날짜 형식이 'YYYY-MM-DD' 또는 'YYYY/MM/DD' 형식인지 확인
+        const dateString = row[orderDateIndex];
+        if (dateString) {
+          const parts = dateString.includes('/') 
+            ? dateString.split('/') 
+            : dateString.split('-');
+          
+          if (parts.length === 3) {
+            // 년, 월, 일이 모두 있는 경우
+            orderDate = new Date(
+              parseInt(parts[0]), 
+              parseInt(parts[1]) - 1, // 월은 0부터 시작
+              parseInt(parts[2])
+            );
+          } else {
+            // 날짜 형식이 아닌 경우 현재 날짜 사용
+            orderDate = new Date();
+          }
+        } else {
+          orderDate = new Date();
+        }
+      } catch (error) {
+        console.error('날짜 변환 오류:', error);
+        orderDate = new Date();
+      }
+
+      // 수량 변환
+      let quantity = 1;
+      try {
+        if (row[quantityIndex]) {
+          quantity = parseInt(row[quantityIndex]) || 1;
+        }
+      } catch (error) {
+        console.error('수량 변환 오류:', error);
+      }
+
+      return {
+        orderNumber: row[orderNoIndex] || '',
+        orderDate,
+        productName: row[productNameIndex] || '',
+        barcode: row[barcodeIndex] || '',
+        quantity
+      };
+    }).filter(order => order !== null);
+
+    console.log(`변환된 주문 데이터: ${orders.length}개`);
+    return orders;
+  } catch (error) {
+    console.error('Google Sheets API 오류:', error);
+    return [];
+  }
+}
 
 // 열 문자를 인덱스로 변환하는 헬퍼 함수
 function columnToIndex(column) {
@@ -253,6 +372,62 @@ app.post('/api/br-orders', async (req, res) => {
   } catch (err) {
     console.error('BR 주문 추가 중 오류:', err);
     res.status(500).json({ message: '주문 추가 중 오류가 발생했습니다.' });
+  }
+});
+
+// 중국 주문 데이터 조회 API
+app.get('/api/china-orders', async (req, res) => {
+  try {
+    const { search } = req.query;
+    let query = {};
+    
+    if (search) {
+      // 검색어가 있는 경우 주문번호, 상품명, 바코드에서 검색
+      query = {
+        $or: [
+          { orderNumber: { $regex: search, $options: 'i' } },
+          { productName: { $regex: search, $options: 'i' } },
+          { barcode: { $regex: search, $options: 'i' } }
+        ]
+      };
+    }
+    
+    const orders = await ChinaOrderModel.find(query).sort({ orderDate: -1 });
+    res.json(orders);
+  } catch (err) {
+    console.error('중국 주문 조회 중 오류:', err);
+    res.status(500).json({ message: '데이터 조회 중 오류가 발생했습니다.' });
+  }
+});
+
+// 중국 주문 데이터 새로고침 API (Google Sheets에서 데이터 가져오기)
+app.post('/api/china-orders/refresh', async (req, res) => {
+  try {
+    console.log('중국 주문 데이터 새로고침 요청 받음');
+    
+    // Google Sheets에서 데이터 가져오기
+    const orders = await getGoogleSheetData();
+    
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'Google Sheets에서 데이터를 찾을 수 없습니다.' });
+    }
+    
+    console.log(`Google Sheets에서 ${orders.length}개 주문 데이터를 가져왔습니다.`);
+    
+    // 기존 데이터 삭제 (선택 사항)
+    await ChinaOrderModel.deleteMany({});
+    
+    // 새 데이터 저장
+    const result = await ChinaOrderModel.insertMany(orders);
+    console.log(`MongoDB에 ${result.length}개 문서 저장 완료`);
+    
+    res.status(200).json({ 
+      message: '중국 주문 데이터가 성공적으로 새로고침되었습니다.', 
+      count: result.length 
+    });
+  } catch (error) {
+    console.error('중국 주문 데이터 새로고침 중 오류:', error);
+    res.status(500).json({ message: '데이터 새로고침 중 오류가 발생했습니다.' });
   }
 });
 

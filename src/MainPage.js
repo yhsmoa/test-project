@@ -31,12 +31,16 @@ const Logo = styled.div`
 
 const ContentWrapper = styled.div`
   display: flex;
+  width: 100%;
 `;
 
 const MainContent = styled.div`
   flex: 1;
   padding: 30px;
   margin-top: 70px;
+  padding-left: 30px;
+  width: calc(100% - 250px);
+  margin-left: 250px;
 `;
 
 const Content = styled.div`
@@ -45,6 +49,8 @@ const Content = styled.div`
   box-shadow: 0 2px 16px rgba(0,0,0,0.08);
   padding: 40px 32px;
   text-align: center;
+  max-width: 1200px;
+  margin: 0 auto;
 `;
 
 const UploadButton = styled.button`
@@ -227,74 +233,72 @@ function MainPage() {
       </Nav>
       <ContentWrapper>
         <Sidebar />
-        <PageContainer>
-          <MainContent>
-            <h2>엑셀 업로드</h2>
-            <Content>
-              <p>쿠팡 판매자센터 엑셀 업로드 페이지입니다.<br />
-              필요한 기능을 차례로 추가해보세요.</p>
-              
-              <FileInput
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx, .xls"
-                onChange={handleFileChange}
-              />
-              
-              <ButtonContainer>
-                <UploadButton onClick={handleUploadClick} disabled={loading}>
-                  {loading ? '처리 중...' : '엑셀 파일 업로드'}
-                </UploadButton>
-              </ButtonContainer>
-              
-              {status && (
-                <StatusMessage success={status.success}>
-                  {status.message}
-                </StatusMessage>
-              )}
-              {/* 삭제 버튼을 테이블 오른쪽 위에 배치 */}
-              <DeleteButtonWrapper>
-                <DeleteButton onClick={handleDelete} disabled={selected.length === 0}>
-                  선택 삭제
-                </DeleteButton>
-              </DeleteButtonWrapper>
-              {/* 데이터 테이블 */}
-              <Table>
-                <thead>
+        <MainContent>
+          <h2>엑셀 업로드</h2>
+          <Content>
+            <p>쿠팡 판매자센터 엑셀 업로드 페이지입니다.<br />
+            필요한 기능을 차례로 추가해보세요.</p>
+            
+            <FileInput
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx, .xls"
+              onChange={handleFileChange}
+            />
+            
+            <ButtonContainer>
+              <UploadButton onClick={handleUploadClick} disabled={loading}>
+                {loading ? '처리 중...' : '엑셀 파일 업로드'}
+              </UploadButton>
+            </ButtonContainer>
+            
+            {status && (
+              <StatusMessage success={status.success}>
+                {status.message}
+              </StatusMessage>
+            )}
+            {/* 삭제 버튼을 테이블 오른쪽 위에 배치 */}
+            <DeleteButtonWrapper>
+              <DeleteButton onClick={handleDelete} disabled={selected.length === 0}>
+                선택 삭제
+              </DeleteButton>
+            </DeleteButtonWrapper>
+            {/* 데이터 테이블 */}
+            <Table>
+              <thead>
+                <tr>
+                  <Th><Checkbox onChange={handleAllCheck} checked={selected.length === items.length && items.length > 0} /></Th>
+                  <Th>주문명</Th>
+                  <Th>상품명</Th>
+                  <Th>옵션명</Th>
+                  <Th>업로드일</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.length === 0 ? (
                   <tr>
-                    <Th><Checkbox onChange={handleAllCheck} checked={selected.length === items.length && items.length > 0} /></Th>
-                    <Th>주문명</Th>
-                    <Th>상품명</Th>
-                    <Th>옵션명</Th>
-                    <Th>업로드일</Th>
+                    <Td colSpan="5" style={{ textAlign: 'center' }}>데이터가 없습니다.</Td>
                   </tr>
-                </thead>
-                <tbody>
-                  {items.length === 0 ? (
-                    <tr>
-                      <Td colSpan="5" style={{ textAlign: 'center' }}>데이터가 없습니다.</Td>
+                ) : (
+                  items.map(item => (
+                    <tr key={item._id}>
+                      <Td>
+                        <Checkbox
+                          checked={selected.includes(item._id)}
+                          onChange={() => handleCheck(item._id)}
+                        />
+                      </Td>
+                      <Td>{item.c_orderName}</Td>
+                      <Td>{item.k_productName}</Td>
+                      <Td>{item.l_optionName}</Td>
+                      <Td>{new Date(item.createdAt).toLocaleDateString()}</Td>
                     </tr>
-                  ) : (
-                    items.map(item => (
-                      <tr key={item._id}>
-                        <Td>
-                          <Checkbox
-                            checked={selected.includes(item._id)}
-                            onChange={() => handleCheck(item._id)}
-                          />
-                        </Td>
-                        <Td>{item.c_orderName}</Td>
-                        <Td>{item.k_productName}</Td>
-                        <Td>{item.l_optionName}</Td>
-                        <Td>{new Date(item.createdAt).toLocaleDateString()}</Td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </Table>
-            </Content>
-          </MainContent>
-        </PageContainer>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </Content>
+        </MainContent>
       </ContentWrapper>
     </>
   );

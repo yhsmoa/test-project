@@ -33,10 +33,36 @@ const MainContent = styled.div`
   flex: 1;
   padding: 30px;
   margin-top: 70px;
+  padding-left: 30px;
+  width: calc(100% - 250px);
+  margin-left: 250px;
 `;
 
 const ContentWrapper = styled.div`
   display: flex;
+  width: 100%;
+`;
+
+const PageHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  max-width: 1200px;
+  margin: 0 auto 20px auto;
+`;
+
+const RefreshButton = styled.button`
+  background-color: #6c757d;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  &:hover {
+    background-color: #5a6268;
+  }
 `;
 
 const SearchContainer = styled.div`
@@ -48,6 +74,8 @@ const SearchContainer = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  max-width: 1200px;
+  margin: 0 auto 20px auto;
 `;
 
 const SearchInputGroup = styled.div`
@@ -65,7 +93,7 @@ const SearchInput = styled.input`
 `;
 
 const Button = styled.button`
-  background-color: ${props => props.refresh ? "#6c757d" : "#0078ff"};
+  background-color: #0078ff;
   color: white;
   padding: 10px 20px;
   border: none;
@@ -73,12 +101,8 @@ const Button = styled.button`
   font-size: 16px;
   cursor: pointer;
   &:hover {
-    background-color: ${props => props.refresh ? "#5a6268" : "#0066cc"};
+    background-color: #0066cc;
   }
-`;
-
-const RefreshButton = styled(Button)`
-  margin-left: 10px;
 `;
 
 const TableContainer = styled.div`
@@ -86,6 +110,8 @@ const TableContainer = styled.div`
   border-radius: 12px;
   box-shadow: 0 2px 16px rgba(0,0,0,0.08);
   padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
 `;
 
 const Table = styled.table`
@@ -111,6 +137,8 @@ const StatusMessage = styled.div`
   border-radius: 4px;
   background-color: ${props => props.success ? '#e6f7ea' : '#ffebee'};
   color: ${props => props.success ? '#1e8e3e' : '#d32f2f'};
+  max-width: 1200px;
+  margin: 0 auto 20px auto;
 `;
 
 function BrOrderPage() {
@@ -119,14 +147,46 @@ function BrOrderPage() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
 
+  // 새로고침 핸들러
+  const handleRefresh = async () => {
+    setLoading(true);
+    setStatus(null);
+    setSearchTerm('');
+    
+    try {
+      // 구글 시트에서 데이터 가져오기 API 호출
+      const response = await fetch('/api/china-orders/refresh', {
+        method: 'POST'
+      });
+      
+      if (!response.ok) {
+        throw new Error('서버 응답이 올바르지 않습니다.');
+      }
+      
+      const result = await response.json();
+      
+      // 새로고침 후 데이터 다시 불러오기
+      const dataResponse = await fetch('/api/china-orders');
+      const data = await dataResponse.json();
+      
+      setOrders(data);
+      setStatus({ success: true, message: `${result.count}개의 데이터가 성공적으로 업데이트되었습니다.` });
+    } catch (error) {
+      console.error("데이터 새로고침 중 오류가 발생했습니다:", error);
+      setStatus({ success: false, message: '데이터 새로고침 중 오류가 발생했습니다.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 데이터 불러오기 함수
   const fetchOrders = async () => {
     setLoading(true);
     setStatus(null);
     try {
       const url = searchTerm 
-        ? `/api/br-orders?search=${encodeURIComponent(searchTerm)}` 
-        : '/api/br-orders';
+        ? `/api/china-orders?search=${encodeURIComponent(searchTerm)}` 
+        : '/api/china-orders';
       
       const response = await fetch(url);
       
@@ -166,12 +226,6 @@ function BrOrderPage() {
     }
   };
 
-  // 새로고침 핸들러
-  const handleRefresh = () => {
-    setSearchTerm('');
-    fetchOrders();
-  };
-
   // 날짜 포맷팅 함수
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -190,68 +244,68 @@ function BrOrderPage() {
       </Nav>
       <ContentWrapper>
         <Sidebar />
-        <PageContainer>
-          <MainContent>
-            <h2>BR 주문</h2>
-            
-            <SearchContainer>
-              <SearchInputGroup>
-                <SearchInput
-                  type="text"
-                  placeholder="검색어를 입력하세요"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                />
-                <Button onClick={handleSearch}>검색</Button>
-              </SearchInputGroup>
-              <RefreshButton refresh onClick={handleRefresh}>
-                새로고침
-              </RefreshButton>
-            </SearchContainer>
-            
-            {status && (
-              <StatusMessage success={status.success}>
-                {status.message}
-              </StatusMessage>
-            )}
-            
-            <TableContainer>
-              <Table>
-                <thead>
+        <MainContent>
+          <PageHeader>
+            <h2>중국 주문</h2>
+            <RefreshButton onClick={handleRefresh}>
+              새로고침
+            </RefreshButton>
+          </PageHeader>
+          
+          <SearchContainer>
+            <SearchInputGroup>
+              <SearchInput
+                type="text"
+                placeholder="검색어를 입력하세요"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={handleKeyPress}
+              />
+              <Button onClick={handleSearch}>검색</Button>
+            </SearchInputGroup>
+          </SearchContainer>
+          
+          {status && (
+            <StatusMessage success={status.success}>
+              {status.message}
+            </StatusMessage>
+          )}
+          
+          <TableContainer>
+            <Table>
+              <thead>
+                <tr>
+                  <Th>주문일</Th>
+                  <Th>주문번호</Th>
+                  <Th>상품명</Th>
+                  <Th>바코드</Th>
+                  <Th>개수</Th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
                   <tr>
-                    <Th>주문일</Th>
-                    <Th>주문번호</Th>
-                    <Th>상품명</Th>
-                    <Th>바코드</Th>
-                    <Th>개수</Th>
+                    <Td colSpan="5" style={{ textAlign: "center" }}>로딩 중...</Td>
                   </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <Td colSpan="5" style={{ textAlign: "center" }}>로딩 중...</Td>
+                ) : orders.length === 0 ? (
+                  <tr>
+                    <Td colSpan="5" style={{ textAlign: "center" }}>데이터가 없습니다</Td>
+                  </tr>
+                ) : (
+                  orders.map((order) => (
+                    <tr key={order._id}>
+                      <Td>{formatDate(order.orderDate)}</Td>
+                      <Td>{order.orderNumber}</Td>
+                      <Td>{order.productName}</Td>
+                      <Td>{order.barcode}</Td>
+                      <Td>{order.quantity}</Td>
                     </tr>
-                  ) : orders.length === 0 ? (
-                    <tr>
-                      <Td colSpan="5" style={{ textAlign: "center" }}>데이터가 없습니다</Td>
-                    </tr>
-                  ) : (
-                    orders.map((order) => (
-                      <tr key={order._id}>
-                        <Td>{formatDate(order.date)}</Td>
-                        <Td>{order.orderNumber}</Td>
-                        <Td>{order.productName}</Td>
-                        <Td>{order.barcode}</Td>
-                        <Td>{order.quantity}</Td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </Table>
-            </TableContainer>
-          </MainContent>
-        </PageContainer>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </TableContainer>
+        </MainContent>
       </ContentWrapper>
     </>
   );
