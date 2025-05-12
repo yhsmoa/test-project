@@ -93,7 +93,7 @@ async function getGoogleSheetData() {
   try {
     // 구글 인증 설정
     const auth = new google.auth.GoogleAuth({
-      keyFile: path.join(__dirname, 'google-credentials.json'),
+      credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
       scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
     });
 
